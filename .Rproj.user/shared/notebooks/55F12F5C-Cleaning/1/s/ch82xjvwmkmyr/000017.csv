@@ -1,0 +1,175 @@
+"1","
+"
+"1","  Binaries will be installed
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/pkgbuild_1.4.5.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 206059 bytes (201 KB)
+"
+"2","downloaded 201 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/rprojroot_2.0.4.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 115238 bytes (112 KB)
+"
+"2","downloaded 112 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/diffobj_0.3.5.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 1031328 bytes (1007 KB)
+"
+"2","downloaded 1007 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/operator.tools_1.6.3.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 56535 bytes (55 KB)
+"
+"2","downloaded 55 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/brio_1.1.5.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 41904 bytes (40 KB)
+"
+"2","downloaded 40 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/desc_1.4.3.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 338227 bytes (330 KB)
+"
+"2","downloaded 330 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/evaluate_1.0.1.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 103952 bytes (101 KB)
+"
+"2","downloaded 101 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/pkgload_1.4.0.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 220195 bytes (215 KB)
+"
+"2","downloaded 215 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/praise_1.0.0.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 20172 bytes (19 KB)
+"
+"2","downloaded 19 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/waldo_0.6.1.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 135186 bytes (132 KB)
+"
+"2","downloaded 132 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/withr_3.0.2.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 232823 bytes (227 KB)
+"
+"2","downloaded 227 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/zip_2.3.1.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 434674 bytes (424 KB)
+"
+"2","downloaded 424 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/formula.tools_1.7.1.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 91005 bytes (88 KB)
+"
+"2","downloaded 88 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/testthat_3.2.1.1.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 2254338 bytes (2.1 MB)
+"
+"2","downloaded 2.1 MB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.4/openxlsx_4.2.7.1.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 2455485 bytes (2.3 MB)
+"
+"2","downloaded 2.3 MB
+
+"
+"1","package ‘pkgbuild’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘rprojroot’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘diffobj’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘operator.tools’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘brio’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘desc’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘evaluate’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘pkgload’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘praise’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘waldo’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘withr’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘zip’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘formula.tools’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘testthat’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘openxlsx’ successfully unpacked and MD5 sums checked
+"
+"1","
+"
+"1",""
+"1","The downloaded binary packages are in
+	C:\Users\jeeva\AppData\Local\Temp\Rtmp6VGRD8\downloaded_packages"
+"1",""
+"1","
+"
+"0","library(openxlsx)"
+"2","Warning: package ‘openxlsx’ was built under R version 4.4.2"
+"0","# Load dplyr for data manipulation"
+"0","library(dplyr)"
+"0",""
+"0","# Calculate the total count of crimes for each area"
+"0","crime_counts_per_area <- crime %>%"
+"0","  group_by(AREA.NAME) %>%"
+"0","  summarise(Total_Crimes = n(), .groups = 'drop') %>%"
+"0","  arrange(desc(Total_Crimes))  # Sort by the number of crimes, highest first"
+"0",""
+"0","# Displaying the result"
+"0","print(crime_counts_per_area)"

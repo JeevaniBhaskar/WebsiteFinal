@@ -1,0 +1,415 @@
+---
+title: "Final analysis"
+author: "Jeevani Bhaskar"
+date: "2024-12-10"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+crime = read.csv("Crime data.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+head(crime)
+```
+
+```{r}
+summary(crime)
+```
+
+```{r}
+cat("Number of rows:", nrow(crime), "\n")
+cat("Number of columns:", ncol(crime), "\n")
+```
+
+```{r}
+colnames(crime)
+```
+
+```{r}
+crime = crime %>%
+  select(
+    -DR_NO,
+    -AREA,
+    -`TIME.OCC`, 
+    -`Part.1.2`,      # Drop Part.1 column
+    -Mocodes,       # Drop Mocodes column
+    -Status,        # Drop Status column
+    -`Crm.Cd.2`,    # Drop Crm.Cd.2 column
+    -`Crm.Cd.3`,    # Drop Crm.Cd.3 column
+    -`Crm.Cd.4`,    # Drop Crm.Cd.4 column
+    -`Cross.Street` # Drop Cross.Street column
+  )
+```
+
+Finding the total sum of missing values
+```{r}
+sum(is.na(crime))
+```
+
+Removing missing values
+```{r}
+crime = na.omit(crime)
+```
+
+Removing duplicates
+```{r}
+crime = crime %>% distinct()
+```
+
+```{r}
+convert_dates <- function(date_column) {
+  dates <- as.Date(date_column, format = "%m/%d/%Y %H:%M")
+  if (any(is.na(dates))) {
+    dates[is.na(dates)] <- as.Date(date_column[is.na(dates)], format = "%m/%d/%Y %I:%M %p")
+  }
+  return(dates)
+}
+
+crime$Date.Rptd <- convert_dates(crime$Date.Rptd)
+crime$DATE.OCC <- convert_dates(crime$DATE.OCC)
+
+# Verify the date conversion
+summary(crime$Date.Rptd)
+summary(crime$DATE.OCC)
+
+# Assuming your dataset is loaded into a data frame named `crime_data`
+
+# Replace negative ages with NA or a reasonable minimum age (e.g., 0 or 1)
+crime$Vict.Age <- ifelse(crime$Vict.Age < 0, NA, crime$Vict.Age)
+
+# Replace zero coordinates (latitude and longitude) with NA
+crime$LAT <- ifelse(crime$LAT == 0, NA, crime$LAT)
+crime$LON <- ifelse(crime$LON == 0, NA, crime$LON)
+
+# Optionally, you can print a summary to verify the changes
+summary(crime)
+
+# Save the cleaned dataset if needed
+#write.csv(crime, "cleaned_crime_data.csv", row.names = FALSE)
+```
+
+```{r}
+# Load the necessary library
+library(dplyr)
+
+# Calculate the total count of crimes for each area
+crime_counts_per_area <- crime %>%
+  group_by(AREA.NAME) %>%
+  summarise(Total_Crimes = n(), .groups = 'drop') %>%
+  arrange(desc(Total_Crimes))  # Sort by the number of crimes, highest first
+
+# Displaying the result
+print(crime_counts_per_area)
+```
+
+Aggregating Crime Data by Victim Sex and Age
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Load the dataset
+# Replace '<file_path>' with the actual file path
+crime_data_clean <- read.csv("Cleaned_Crime_Data.csv")
+
+# Recode Vict.Sex column
+crime_data_clean$Vict.Sex <- recode(
+    crime_data_clean$Vict.Sex,
+    "M" = "Male",
+    "F" = "Female",
+    "X" = "Non-Binary",
+    "H" = "Other",
+    .default = "Unknown"
+)
+
+# Filter dataset to include relevant categories
+crime_filtered <- crime_data_clean %>%
+    filter(Vict.Sex %in% c("Male", "Female", "Non-Binary"))
+
+# Filter out unrealistic age values (if necessary)
+crime_filtered <- crime_filtered %>%
+    filter(Vict.Age > 0 & Vict.Age <= 100)
+
+# Aggregate crime data by Victim's sex and age
+crime_by_sex_age <- crime_filtered %>%
+    group_by(Vict.Sex, Vict.Age) %>%
+    summarise(Total_Crimes = n(), .groups = "drop")
+
+# Generate scatter plot to visualize crime counts by Victim Age and Sex
+ggplot(crime_by_sex_age, aes(x = Vict.Age, y = Total_Crimes, color = Vict.Sex)) +
+    geom_point(alpha = 0.6) +
+    labs(
+        title = "Crime Counts by Victim Age and Sex",
+        x = "Victim Age",
+        y = "Total Crimes",
+        color = "Victim Sex"
+    ) +
+    theme_minimal()
+
+
+
+```
+
+
+```{r}
+# Load necessary library for modeling
+library(lmtest)
+
+# Fit linear models for each sex if appropriate
+model_male <- lm(Total_Crimes ~ Vict.Age, data = crime_by_sex_age %>% filter(Vict.Sex == "M"))
+model_female <- lm(Total_Crimes ~ Vict.Age, data = crime_by_sex_age %>% filter(Vict.Sex == "F"))
+
+# Summarizing models
+summary(model_male)
+summary(model_female)
+```
+
+a table with male and female with age limit 20 to 45 and count of crimes 
+```{r}
+# Load necessary library
+library(dplyr)
+
+# Aggregate crime data by victim's sex and age with specified filters
+filtered_crime_table <- crime %>%
+  filter(Vict.Age >= 20 & Vict.Age <= 30, Vict.Sex %in% c("M", "F")) %>%
+  group_by(Vict.Sex, Vict.Age) %>%
+  summarise(Total_Crimes = n(), .groups = 'drop') %>%
+  arrange(Vict.Sex, Vict.Age)
+
+# Displaying the aggregated data
+print(filtered_crime_table)
+
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Calculate the total crimes to use for normalization if needed
+total_crimes <- sum(crime$Vict.Sex %in% c("M", "F"))
+
+# Aggregate crime data by victim's sex and normalize by the total crimes
+crime_data_by_sex <- crime %>%
+  filter(Vict.Sex %in% c("M", "F")) %>%
+  group_by(Vict.Sex) %>%
+  summarise(Total_Crimes = n(), .groups = 'drop') %>%
+  mutate(Percentage = Total_Crimes / total_crimes * 100)  # Calculate percentage of total crimes
+
+# Plotting the data with scaled y-axis and adding percentage labels
+ggplot(crime_data_by_sex, aes(x = Vict.Sex, y = Percentage, fill = Vict.Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = sprintf("%.2f%%", Percentage)),  # Format labels to show as percentages
+            vjust = -0.5,  # Adjust vertical position to be above the bar
+            color = "black", size = 3.5) +
+  labs(title = "Total Crime Counts by Victim Sex (Scaled as % of Total)",
+       x = "Victim Sex",
+       y = "Percentage of Total Crimes (%)") +
+  scale_fill_manual(values = c("M" = "blue", "F" = "pink")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0),
+        legend.title = element_blank())
+```
+
+
+1. Crime by Type of Premises
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Aggregate data by Premis.Desc
+crime_by_premise <- crime %>%
+  group_by(Premis.Desc) %>%
+  summarise(Total_Crimes = n()) %>%
+  arrange(desc(Total_Crimes))
+
+# Plotting the top 10 premises for crimes
+ggplot(crime_by_premise[1:10, ], aes(x = reorder(Premis.Desc, -Total_Crimes), y = Total_Crimes)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Top 10 Crime Locations by Premise", x = "Type of Premise", y = "Number of Crimes") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+2. Correlation Between Victim Age and Crime Type
+```{r}
+# Filter dataset to exclude extreme or missing age values
+filtered_data <- crime %>%
+  filter(Vict.Age > 0 & Vict.Age < 100)
+
+# Plotting victim age by crime type (top 5 common crimes)
+top_crimes <- filtered_data %>%
+  group_by(Crm.Cd.Desc) %>%
+  summarise(Total = n()) %>%
+  top_n(5, Total)
+
+# Visualizing Age distribution for top crimes
+filtered_data %>%
+  filter(Crm.Cd.Desc %in% top_crimes$Crm.Cd.Desc) %>%
+  ggplot(aes(x = Vict.Age, fill = Crm.Cd.Desc)) +
+  geom_histogram(bins = 30, position = "dodge") +
+  labs(title = "Distribution of Victim Age by Crime Type", x = "Victim Age", y = "Frequency") +
+  theme_minimal()
+```
+
+
+RQ1)
+What is the relationship between crime types and premises, and are certain types of crimes more likely to occur in specific premises?
+```{r}
+library(ggplot2)
+library(reshape2)
+
+# Aggregate crime types into broader categories (example: crime codes grouped into categories)
+# Adjust the mapping as per the dataset
+crime$Crime_Category <- cut(crime$Crm.Cd, 
+                            breaks = c(0, 200, 400, 600, 800, 1000),
+                            labels = c("Category 1", "Category 2", "Category 3", "Category 4", "Category 5"))
+
+# Aggregate premises into broader categories (example: premises codes grouped into categories)
+crime$Premises_Category <- cut(crime$Premis.Cd, 
+                               breaks = c(0, 200, 400, 600, 800, 1000),
+                               labels = c("Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"))
+
+# Create a contingency table for the aggregated categories
+aggregated_table <- table(crime$Crime_Category, crime$Premises_Category)
+
+# Perform a Chi-square test on the aggregated table
+aggregated_chisq_test <- chisq.test(aggregated_table)
+
+# Print the results of the aggregated chi-square test
+print(aggregated_chisq_test)
+
+# Convert the contingency table to a data frame for plotting
+aggregated_df <- as.data.frame(aggregated_table)
+colnames(aggregated_df) <- c("Crime_Category", "Premises_Category", "Frequency")
+
+# Create a heatmap to visualize the relationship
+library(ggplot2)
+ggplot(aggregated_df, aes(x = Premises_Category, y = Crime_Category, fill = Frequency)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  labs(title = "Crime Types by Premises Categories (Heatmap)",
+       x = "Premises Categories",
+       y = "Crime Categories",
+       fill = "Frequency") +
+  theme_minimal()
+
+```
+
+
+
+RQ2)
+Are younger victims more likely to be involved in severe crimes compared to older victims?
+```{r}
+# Define severe crime descriptions
+severe_crime_descriptions <- c(
+  "CRIMINAL HOMICIDE",
+  "RAPE, FORCIBLE",
+  "KIDNAPPING",
+  "ARSON",
+  "ASSAULT WITH DEADLY WEAPON, AGGRAVATED ASSAULT"
+)
+crime_data_clean <- read.csv("Cleaned_Crime_Data.csv")
+
+
+# Create a binary column for crime severity
+crime_data_clean$Severe <- ifelse(crime_data_clean$Crm.Cd.Desc %in% severe_crime_descriptions, 1, 0)
+
+# Check the classification
+table(crime_data_clean$Severe)
+
+# Split data into severe and non-severe crimes
+severe_crimes <- subset(crime_data_clean, Severe == 1)
+non_severe_crimes <- subset(crime_data_clean, Severe == 0)
+
+# Ensure there is sufficient data for t-test
+if (nrow(severe_crimes) > 1 & nrow(non_severe_crimes) > 1) {
+  # Perform t-test
+  t_test_result <- t.test(severe_crimes$Vict.Age, non_severe_crimes$Vict.Age, alternative = "two.sided")
+  print(t_test_result)
+  
+  # Visualize results
+  library(ggplot2)
+  ggplot(crime_data_clean, aes(x = as.factor(Severe), y = Vict.Age, fill = as.factor(Severe))) +
+    geom_boxplot() +
+    labs(
+      title = "Victim Age Distribution by Crime Severity",
+      x = "Crime Severity (0 = Non-Severe, 1 = Severe)",
+      y = "Victim Age"
+    ) +
+    theme_minimal()
+} else {
+  print("Not enough data for t-test")
+}
+
+```
+
+
+RQ3)
+What proportion of severe crimes are committed against Females?
+
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Filter the dataset to remove missing or irrelevant values
+crime_data_filtered <- crime_data_clean %>%
+  filter(!is.na(Vict.Sex), !is.na(Severe)) %>%
+  mutate(
+    Vict.Sex = as.factor(ifelse(Vict.Sex == 0, "Male", "Female")),
+    Severe = as.factor(ifelse(Severe == 0, "Non-Severe", "Severe"))
+  )
+
+# Ensure the filtered dataset has enough data
+if (nrow(crime_data_filtered) == 0) {
+  stop("No valid data available after filtering.")
+}
+
+# Create the contingency table
+contingency_table <- table(crime_data_filtered$Vict.Sex, crime_data_filtered$Severe)
+
+# Check if the contingency table has valid entries for the chi-squared test
+if (any(rowSums(contingency_table) == 0) || any(colSums(contingency_table) == 0)) {
+  warning("Chi-squared test cannot be performed: contingency table has zero counts in one or more categories.")
+} else {
+  # Perform chi-squared test
+  chi_test <- chisq.test(contingency_table)
+  print(contingency_table)
+  print(chi_test)
+}
+
+# Calculate proportions for visualization
+crime_proportions <- crime_data_filtered %>%
+  group_by(Vict.Sex, Severe) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  group_by(Vict.Sex) %>%
+  mutate(Proportion = Count / sum(Count))
+
+# Ensure there are valid proportions for plotting
+if (nrow(crime_proportions) == 0) {
+  stop("No valid data available for plotting.")
+}
+
+# Bar plot visualization
+ggplot(crime_proportions, aes(x = Vict.Sex, y = Proportion, fill = Severe)) +
+  geom_bar(stat = "identity", position = "fill") +
+  scale_fill_manual(values = c("Non-Severe" = "yellow", "Severe" = "skyblue")) +
+  labs(
+    title = "Proportion of Severe Crimes by Victim Sex",
+    x = "Victim Sex",
+    y = "Proportion",
+    fill = "Crime Severity"
+  ) +
+  theme_minimal()
+
+```
+

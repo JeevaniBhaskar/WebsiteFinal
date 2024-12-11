@@ -1,0 +1,506 @@
+---
+title: "Final analysis"
+author: "Jeevani Bhaskar"
+date: "2024-12-10"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+crime = read.csv("Crime data.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+head(crime)
+```
+
+```{r}
+summary(crime)
+write.xlsx(summary, file = "SummaryOfCrimeData.xlsx", sheetName = "Summary", overwrite = TRUE)
+
+```
+
+```{r}
+cat("Number of rows:", nrow(crime), "\n")
+cat("Number of columns:", ncol(crime), "\n")
+```
+
+```{r}
+colnames(crime)
+```
+
+```{r}
+crime = crime %>%
+  select(
+    -DR_NO,
+    -AREA,
+    -`TIME.OCC`, 
+    -`Part.1.2`,    # Drop Part.1 column
+    -Mocodes,       # Drop Mocodes column
+    -Status,        # Drop Status column
+    -`Crm.Cd.2`,    # Drop Crm.Cd.2 column
+    -`Crm.Cd.3`,    # Drop Crm.Cd.3 column
+    -`Crm.Cd.4`,    # Drop Crm.Cd.4 column
+    -`Cross.Street` # Drop Cross.Street column
+  )
+```
+
+Finding the total sum of missing values
+```{r}
+sum(is.na(crime))
+```
+
+Removing missing values
+```{r}
+crime = na.omit(crime)
+```
+
+Removing duplicates
+```{r}
+crime = crime %>% distinct()
+```
+
+```{r}
+convert_dates <- function(date_column) {
+  dates <- as.Date(date_column, format = "%m/%d/%Y %H:%M")
+  if (any(is.na(dates))) {
+    dates[is.na(dates)] <- as.Date(date_column[is.na(dates)], format = "%m/%d/%Y %I:%M %p")
+  }
+  return(dates)
+}
+
+crime$Date.Rptd <- convert_dates(crime$Date.Rptd)
+crime$DATE.OCC <- convert_dates(crime$DATE.OCC)
+
+# Verify the date conversion
+summary(crime$Date.Rptd)
+summary(crime$DATE.OCC)
+```
+
+```{r}
+# Install openxlsx if not already installed
+if (!require(openxlsx)) {
+    install.packages("openxlsx", dependencies = TRUE)
+}
+library(openxlsx)
+
+# Load dplyr for data manipulation
+library(dplyr)
+
+# Calculate the total count of crimes for each area
+crime_counts_per_area <- crime %>%
+  group_by(AREA.NAME) %>%
+  summarise(Total_Crimes = n(), .groups = 'drop') %>%
+  arrange(desc(Total_Crimes))  # Sort by the number of crimes, highest first
+
+# Displaying the result
+print(crime_counts_per_area)
+
+# Write the dataframe to an Excel file
+write.xlsx(crime_counts_per_area, file = "CrimeCountsPerArea.xlsx", sheetName = "Crime Counts", overwrite = TRUE)
+
+```
+
+Aggregating Crime Data by Victim Sex and Age
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Aggregate crime data by victim's sex and age
+crime_by_sex_age <- crime %>%
+  group_by(Vict.Sex, Vict.Age) %>%
+  summarise(Total_Crimes = n(), .groups = 'drop') %>%
+  filter(Vict.Age > 0 & Vict.Age <= 100)  # Filtering to remove unrealistic ages
+
+# Scatter plot to visualize relationship between age, sex, and number of crimes
+ggplot(crime_by_sex_age, aes(x = Vict.Age, y = Total_Crimes, color = Vict.Sex)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Crime Counts by Victim Age and Sex",
+       x = "Victim Age",
+       y = "Total Crimes") +
+  theme_minimal()
+
+```
+
+```{r}
+# Load necessary library for modeling
+library(lmtest)
+
+# Fit linear models for each sex if appropriate
+model_male <- lm(Total_Crimes ~ Vict.Age, data = crime_by_sex_age %>% filter(Vict.Sex == "M"))
+model_female <- lm(Total_Crimes ~ Vict.Age, data = crime_by_sex_age %>% filter(Vict.Sex == "F"))
+
+# Summarizing models
+summary(model_male)
+summary(model_female)
+```
+
+a table with male and female with age limit 20 to 45 and count of crimes 
+```{r}
+# Load necessary library
+library(dplyr)
+
+# Aggregate crime data by victim's sex and age with specified filters
+filtered_crime_table <- crime %>%
+  filter(Vict.Age >= 20 & Vict.Age <= 30, Vict.Sex %in% c("M", "F")) %>%
+  group_by(Vict.Sex, Vict.Age) %>%
+  summarise(Total_Crimes = n(), .groups = 'drop') %>%
+  arrange(Vict.Sex, Vict.Age)
+
+# Displaying the aggregated data
+print(filtered_crime_table)
+
+# Write the dataframe to an Excel file
+write.xlsx(filtered_crime_table, file = "Filtered_Crime_Table.xlsx", sheetName = "Filtered Crime", overwrite = TRUE)
+
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Calculate the total crimes to use for normalization if needed
+total_crimes <- sum(crime$Vict.Sex %in% c("M", "F"))
+
+# Aggregate crime data by victim's sex and normalize by the total crimes
+crime_data_by_sex <- crime %>%
+  filter(Vict.Sex %in% c("M", "F")) %>%
+  group_by(Vict.Sex) %>%
+  summarise(Total_Crimes = n(), .groups = 'drop') %>%
+  mutate(Percentage = Total_Crimes / total_crimes * 100)  # Calculate percentage of total crimes
+
+# Plotting the data with scaled y-axis and adding percentage labels
+ggplot(crime_data_by_sex, aes(x = Vict.Sex, y = Percentage, fill = Vict.Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = sprintf("%.2f%%", Percentage)),  # Format labels to show as percentages
+            vjust = -0.5,  # Adjust vertical position to be above the bar
+            color = "black", size = 3.5) +
+  labs(title = "Total Crime Counts by Victim Sex (Scaled as % of Total)",
+       x = "Victim Sex",
+       y = "Percentage of Total Crimes (%)") +
+  scale_fill_manual(values = c("M" = "blue", "F" = "pink")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0),
+        legend.title = element_blank())
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Calculate the total crimes to use for normalization if needed
+total_crimes <- sum(crime$Vict.Sex %in% c("M", "F"))
+
+# Aggregate crime data by victim's sex and normalize by the total crimes
+crime_data_by_sex <- crime %>%
+  filter(Vict.Sex %in% c("M", "F")) %>%
+  group_by(Vict.Sex) %>%
+  summarise(Total_Crimes = n(), .groups = 'drop') %>%
+  mutate(Scaled_Crimes = Total_Crimes / total_crimes * 100)  # Scale as percentage of total crimes
+
+# Plotting the data with scaled y-axis
+ggplot(crime_data_by_sex, aes(x = Vict.Sex, y = Scaled_Crimes, fill = Vict.Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Total Crime Counts by Victim Sex (Scaled as % of Total)",
+       x = "Victim Sex",
+       y = "Percentage of Total Crimes (%)") +
+  scale_fill_manual(values = c("M" = "blue", "F" = "pink")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0),
+        legend.title = element_blank())
+```
+
+
+
+```{r}
+# Load necessary library
+library(ggplot2)
+library(dplyr)
+
+# Convert DATE.OCC to Date format for easier handling
+crime$DATE.OCC <- as.Date(crime$DATE.OCC, "%d/%m/%Y")
+
+# Aggregate data by year
+annual_crime_counts <- crime %>%
+  mutate(Year = format(DATE.OCC, "%Y")) %>%
+  group_by(Year) %>%
+  summarise(Total_Crimes = n())
+
+# Plotting the trend
+ggplot(annual_crime_counts, aes(x = Year, y = Total_Crimes)) +
+  geom_line(group=1, color="blue") +
+  geom_point(color="red") +
+  labs(title = "Annual Crime Trends in Los Angeles", x = "Year", y = "Total Number of Crimes")
+```
+
+```{r}
+# Load necessary library
+library(dplyr)
+library(ggplot2)
+library(stringr) # for str_detect
+
+# Filter the dataset for crime types that include "VEHICLE"
+vehicle_crime_data <- crime %>%
+  filter(str_detect(Crm.Cd.Desc, "VEHICLE")) %>%
+  mutate(Year.OCC = format(as.Date(DATE.OCC, format="%d/%m/%Y"), "%Y")) %>%
+  group_by(Year.OCC, Crm.Cd.Desc) %>%
+  summarise(Crime_Count = n(), .groups = 'drop') %>%
+  filter(Crime_Count > 50) # Filtering to keep the plot readable
+
+# Plotting the filtered data
+ggplot(vehicle_crime_data, aes(x = Year.OCC, y = Crime_Count, fill = Crm.Cd.Desc)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Comparison of Vehicle-Related Crime Types Over the Years", x = "Year", y = "Count of Crimes") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+```
+
+
+```{r}
+# Load necessary library
+library(dplyr)
+library(ggplot2)
+library(stringr) # for str_detect
+
+# Filter the dataset for crime types that include "KIDNAPPING"
+kidnapping_data <- crime %>%
+  filter(str_detect(Crm.Cd.Desc, "KIDNAPPING")) %>%
+  mutate(Year.OCC = format(as.Date(DATE.OCC, format="%d/%m/%Y"), "%Y")) %>%
+  group_by(Year.OCC, Crm.Cd.Desc) %>%
+  summarise(Crime_Count = n(), .groups = 'drop') %>%
+  filter(Crime_Count > 50) # Filtering to keep the plot readable
+
+# Plotting the filtered data
+ggplot(kidnapping_data, aes(x = Year.OCC, y = Crime_Count, fill = Crm.Cd.Desc)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Comparison of Kidnapping Crimes Over the Years", x = "Year", y = "Count of Crimes") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+1. Crime by Type of Premises
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Aggregate data by Premis.Desc
+crime_by_premise <- crime %>%
+  group_by(Premis.Desc) %>%
+  summarise(Total_Crimes = n()) %>%
+  arrange(desc(Total_Crimes))
+
+# Plotting the top 10 premises for crimes
+ggplot(crime_by_premise[1:10, ], aes(x = reorder(Premis.Desc, -Total_Crimes), y = Total_Crimes)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Top 10 Crime Locations by Premise", x = "Type of Premise", y = "Number of Crimes") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+2. Correlation Between Victim Age and Crime Type
+```{r}
+# Filter dataset to exclude extreme or missing age values
+filtered_data <- crime %>%
+  filter(Vict.Age > 0 & Vict.Age < 100)
+
+# Plotting victim age by crime type (top 5 common crimes)
+top_crimes <- filtered_data %>%
+  group_by(Crm.Cd.Desc) %>%
+  summarise(Total = n()) %>%
+  top_n(5, Total)
+
+# Visualizing Age distribution for top crimes
+filtered_data %>%
+  filter(Crm.Cd.Desc %in% top_crimes$Crm.Cd.Desc) %>%
+  ggplot(aes(x = Vict.Age, fill = Crm.Cd.Desc)) +
+  geom_histogram(bins = 30, position = "dodge") +
+  labs(title = "Distribution of Victim Age by Crime Type", x = "Victim Age", y = "Frequency") +
+  theme_minimal()
+```
+
+```{r}
+# Ensure all necessary packages are installed and loaded
+if (!require(caret)) {
+    install.packages("caret", dependencies = TRUE)
+}
+library(caret)
+
+if (!require(rpart)) {
+    install.packages("rpart")
+}
+library(rpart)
+
+if (!require(rpart.plot)) {
+    install.packages("rpart.plot")
+}
+library(rpart.plot)
+
+if (!require(dplyr)) {
+    install.packages("dplyr")
+}
+library(dplyr)
+
+# Assuming the crime data is loaded into 'crime_data'
+# Convert necessary columns to appropriate formats
+crime$DATE.OCC <- as.Date(crime$DATE.OCC, "%m/%d/%Y %H:%M")
+crime$Crm.Cd.Desc <- as.factor(crime$Crm.Cd.Desc)
+crime$Vict.Sex <- factor(crime$Vict.Sex)
+
+# Filter to ensure clean data
+filtered_data <- crime %>%
+  filter(Vict.Age > 0 & Vict.Age <= 100) %>%
+  select(Crm.Cd.Desc, Vict.Age, Vict.Sex)
+
+# Splitting the data into training and testing sets
+set.seed(123)  # For reproducibility
+training_indices <- createDataPartition(filtered_data$Crm.Cd.Desc, p = 0.7, list = FALSE)
+train_data <- filtered_data[training_indices, ]
+test_data <- filtered_data[-training_indices, ]
+
+# Building the decision tree model
+tree_model <- rpart(Crm.Cd.Desc ~ Vict.Age + Vict.Sex, data = train_data, method = "class")
+
+# Plotting the tree
+rpart.plot(tree_model)
+
+# Making predictions
+predictions <- predict(tree_model, newdata = test_data, type = "class")
+
+# Calculate accuracy
+actual <- test_data$Crm.Cd.Desc
+predicted <- levels(actual)[max.col(predictions)]
+accuracy <- mean(predicted == actual)
+
+# Print model accuracy
+print(paste("Accuracy of the decision tree model:", accuracy))
+
+```
+
+Given your request to focus on particular kinds of crimes and fit a model accordingly, we can choose a subset of crime types and apply a suitable model to analyze the data. Given that we're focusing on specific types of crime, a Decision Tree might be appropriate because it can handle categorical outcomes well and provides a clear, interpretable model of the data.
+
+Here's a step-by-step guide on how to subset the data for specific crime types and then fit a decision tree model:
+
+Step 1: Subset the Data
+You'll need to specify which types of crimes you want to focus on. For the sake of this example, let's say we want to analyze "THEFT" and "BURGLARY". You can adjust the list to include the specific crime types you're interested in.
+
+Step 2: Preprocess the Data
+Ensure the crime data has been loaded and that necessary columns are formatted correctly, especially the date and categorical variables.
+
+Step 3: Fit a Decision Tree Model
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+
+# Ensure your crime dataset is loaded into `crime_data`
+# Suppose `crime_data` is already loaded and preprocessed
+
+# Subset data for specific types of crimes
+focused_crimes <- crime %>%
+  filter(Crm.Cd.Desc %in% c("THEFT", "BURGLARY"))  # Specify the crimes you are interested in
+
+# Ensure that 'Crm.Cd.Desc' and 'Vict.Sex' are factors
+focused_crimes$Crm.Cd.Desc <- as.factor(focused_crimes$Crm.Cd.Desc)
+focused_crimes$Vict.Sex <- factor(focused_crimes$Vict.Sex)
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+training_indices <- createDataPartition(focused_crimes$Crm.Cd.Desc, p = 0.7, list = FALSE)
+train_data <- focused_crimes[training_indices, ]
+test_data <- focused_crimes[-training_indices, ]
+
+# Building the decision tree model
+tree_model <- rpart(Crm.Cd.Desc ~ Vict.Age + Vict.Sex, data = train_data, method = "class")
+
+# Plotting the tree with a recognized color palette
+rpart.plot(tree_model, box.palette="Blues")
+
+# Making predictions and evaluating the model
+predictions <- predict(tree_model, newdata = test_data, type = "class")
+predicted <- levels(test_data$Crm.Cd.Desc)[max.col(predictions)]
+accuracy <- mean(predicted == test_data$Crm.Cd.Desc)
+
+# Print model accuracy
+print(paste("Accuracy of the decision tree model:", accuracy))
+```
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Assuming 'crime' is your data frame and already loaded
+# Calculate frequencies of each crime description
+crime_frequencies <- table(crime$Crm.Cd.Desc)
+
+# Create a replacement vector where crime descriptions with less than 50 occurrences are labeled 'Other Crimes'
+crime_replacement <- ifelse(crime_frequencies < 50, "Other Crimes", names(crime_frequencies))
+
+# Map the original crime descriptions to the new labels
+crime$Crm.Cd.Desc <- factor(crime_replacement[crime$Crm.Cd.Desc])
+
+# Now you can proceed with your data splitting and modeling
+set.seed(123)
+training_indices <- createDataPartition(crime$Crm.Cd.Desc, p = 0.7, list = FALSE)
+train_data <- crime[training_indices, ]
+test_data <- crime[-training_indices, ]
+
+# Build the decision tree model
+tree_model <- rpart(Crm.Cd.Desc ~ Vict.Age + Vict.Sex, data = train_data, method = "class")
+
+# Plotting the tree
+rpart.plot(tree_model, box.palette="Blues")
+
+# Making predictions
+predictions <- predict(tree_model, newdata = test_data, type = "class")
+predicted <- levels(test_data$Crm.Cd.Desc)[max.col(predictions)]
+accuracy <- mean(predicted == test_data$Crm.Cd.Desc, na.rm = TRUE)
+
+# Print model accuracy
+print(paste("Accuracy of the decision tree model:", accuracy))
+```
+
+```{r}
+# Load necessary libraries
+library(caret)
+library(rpart)
+library(rpart.plot)
+
+# Factorize the response variable if not already
+crime$Crm.Cd.Desc <- as.factor(crime$Crm.Cd.Desc)
+
+# Handling missing values - assuming you've already done this
+# crime_data <- na.omit(crime_data)
+
+# Split data into training and testing sets
+set.seed(123)  # for reproducibility
+indexes <- createDataPartition(crime$Crm.Cd.Desc, p=0.7, list=FALSE)
+train_data <- crime[indexes,]
+test_data <- crime[-indexes,]
+
+# Build the decision tree model
+tree_model <- rpart(Crm.Cd.Desc ~ ., data = train_data, method = "class")
+
+# Plot the decision tree
+rpart.plot(tree_model, main="Decision Tree for Crime Data")
+
+# Predict on the test set
+predictions <- predict(tree_model, test_data, type="class")
+
+# Evaluate the model
+conf_mat <- confusionMatrix(predictions, test_data$Crm.Cd.Desc)
+print(conf_mat)
+
+# Save the output as an R script
+writeLines(c("library(caret)", "library(rpart)", "library(rpart.plot)",
+             "# Additional model setup and evaluation steps here"),
+           con = "model_script.R")
+```
+

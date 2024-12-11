@@ -1,0 +1,4 @@
+"0",""
+"0","# Write the dataframe to an Excel file"
+"0","write.xlsx(filtered_crime_table, file = ""Filtered_Crime_Table.xlsx"", sheetName = ""Filtered Crime"", overwrite = TRUE)"
+"0",""
