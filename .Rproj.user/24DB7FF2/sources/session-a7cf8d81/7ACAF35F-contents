@@ -7,7 +7,7 @@ toc: true
 # Loading necessary libraries for data manipulation and visualization.
 library(tidyverse)
 # Load the Dataset
-crime = read.csv("C:/Users/bhavy/Documents/Fall 2024/STAT/Final Project/STAT FINAL PROJECT/Crime data.csv", stringsAsFactors = FALSE)
+crime = read.csv("Crime data.csv", stringsAsFactors = FALSE)
 ```
 
 ```{r}
